@@ -2,6 +2,8 @@ import os
 import sqlite3
 import logging
 import random
+import threading
+from http.server import SimpleHTTPRequestHandler, HTTPServer
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
@@ -18,6 +20,20 @@ from docx import Document
 
 logging.basicConfig(level=logging.INFO)
 DB_NAME = "talaba_premium.db"
+
+# --- RENDER PORT CHEKLOVINI AYLANIB O'TISH ---
+# Render tekin servis o'chib qolmasligi va xato bermasligi uchun kichik HTTP server
+def run_health_check_server():
+    class QuietHandler(SimpleHTTPRequestHandler):
+        def log_message(self, format, *args):
+            pass # Konsolda ortiqcha yozuvlar chiqmasligi uchun
+    
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), QuietHandler)
+    server.serve_forever()
+
+# Serverni alohida oqimda (thread) ishga tushiramiz
+threading.Thread(target=run_health_check_server, daemon=True).start()
 
 # --- INTELLEKTUAL AI MATN GENERATORI (MOCK AI) ---
 def generate_ai_content(topic, mode="essay"):
@@ -53,8 +69,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-def get_or_create_user(user_id):
-    conn = sqlite3.connect(DB_NAME)
+def get_or_create_user(user_id):conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT free_attempts, is_vip FROM users WHERE user_id = ?", (user_id,))
     user = cursor.fetchone()
@@ -79,7 +94,9 @@ def set_vip_status(user_id):
     conn.commit()
     conn.close()
 
-init_db()class StudentBotStates(StatesGroup):
+init_db()
+
+class StudentBotStates(StatesGroup):
     waiting_for_slide_topic = State()
     waiting_for_essay_topic = State()
 
@@ -144,8 +161,7 @@ async def create_premium_slide(message: types.Message, state: FSMContext):
     TEXT_COLOR = RGBColor(255, 255, 255)  
     ACCENT_COLOR = RGBColor(0, 180, 216)  
 
-    for i, s_data in enumerate(slides_data):
-        blank_layout = prs.slide_layouts[6] 
+    for i, s_data in enumerate(slides_data):blank_layout = prs.slide_layouts[6] 
         slide = prs.slides.add_slide(blank_layout)
         bg_shape = slide.shapes.add_shape(1, 0, 0, prs.slide_width, prs.slide_height)
         bg_shape.fill.solid()
@@ -164,7 +180,8 @@ async def create_premium_slide(message: types.Message, state: FSMContext):
             p_title.alignment = PP_ALIGN.CENTER
             title_box.top = Inches(2.2)
 
-        content_box = slide.shapes.add_textbox(Inches(1), Inches(2.8), Inches(11.333), Inches(4))tf_content = content_box.text_frame
+        content_box = slide.shapes.add_textbox(Inches(1), Inches(2.8), Inches(11.333), Inches(4))
+        tf_content = content_box.text_frame
         tf_content.word_wrap = True
         p_content = tf_content.paragraphs[0]
         p_content.text = s_data["content"]
@@ -223,7 +240,7 @@ async def send_payment_info(message: types.Message):
         "💰 1 oylik obuna narxi: 25 000 so'm\n\n"
         "To'lovni Mavrid orqali o'tkazing:\n"
         "💳 Karta raqam: 9860012126025795\n"
-        "👤 Qabul qiluvchi: shodmonov sardor\n\n"
+        "👤 Qabul qiluvchi: Shodmonov Sardor\n\n"
         "⚠️ To'lovdan so'ng chekni (rasmni) shu yerga jo'nating!"
     )
     await message.answer(text, parse_mode="Markdown")
@@ -232,8 +249,7 @@ async def send_payment_info(message: types.Message):
 async def handle_screenshot(message: types.Message):
     user_id = message.from_user.id
     username = f"@{message.from_user.username}" if message.from_user.username else "Yo'q"
-    kb = [[types.InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"accept_{user_id}"),
-           types.InlineKeyboardButton(text="❌ Rad etish", callback_data=f"reject_{user_id}")]]
+    kb = [[types.InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"accept_{user_id}"),types.InlineKeyboardButton(text="❌ Rad etish", callback_data=f"reject_{user_id}")]]
     await bot.send_photo(chat_id=ADMIN_ID, photo=message.photo[-1].file_id, 
                          caption=f"🔔 To'lov cheki!\n👤 Kimdan: {message.from_user.full_name}\n🆔 ID: {user_id}", 
                          reply_markup=types.InlineKeyboardMarkup(inline_keyboard=kb))
@@ -246,7 +262,9 @@ async def approve_vip(callback: types.CallbackQuery):
     try:
         await bot.send_message(chat_id=target_user_id, text="🎉 VIP obuna berildi!")
     except: pass
-    await callback.message.edit_caption(caption=callback.message.caption + "\n\n🟢 VIP FAOLLASHTIRILDI")@dp.callback_query(F.data.startswith("reject_"))
+    await callback.message.edit_caption(caption=callback.message.caption + "\n\n🟢 VIP FAOLLASHTIRILDI")
+
+@dp.callback_query(F.data.startswith("reject_"))
 async def reject_vip(callback: types.CallbackQuery):
     target_user_id = int(callback.data.split("_")[1])
     try:
@@ -255,15 +273,15 @@ async def reject_vip(callback: types.CallbackQuery):
     await callback.message.edit_caption(caption=callback.message.caption + "\n\n🔴 RAD ETILDI")
 
 # ====================================================================
-# 👇 ENGI PASTI — MANA SHU YERGA O'ZINGIZNIKINI YOZING 👇
+# 👇 MANA SHU YERGA O'ZINGIZNIKINI YOZISHNI UNUTMANG 👇
 # ====================================================================
 
-BOT_TOKEN = "8802435742:AAGW4o9UjsRAtXvsHMj2mlrApBWg8pPTuts"   # 👈 O'rniga BotFather bergan tokenni qo'ying
-ADMIN_ID = 6141302755                    # 👈 O'rniga userinfobot bergan ID raqamingizni yozing
+BOT_TOKEN = "8802435742:AAGW4o9UjsRAtXvsHMj2mlrApBWg8pPTuts"   # 👈 BotFather bergan tokenni qo'ying
+ADMIN_ID = 6141302755                    # 👈 userinfobot bergan ID raqamingizni yozing
 
 # ====================================================================
 
 if name == "main":
     import asyncio
-    bot = Bot(token=BOT_TOKEN) # Botni yangi token bilan yuklash
+    bot = Bot(token=BOT_TOKEN) 
     asyncio.run(dp.start_polling(bot))
