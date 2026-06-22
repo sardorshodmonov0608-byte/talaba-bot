@@ -70,7 +70,7 @@ def init_db():
     conn.close()
 
 def get_or_create_user(user_id):conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
+cursor = conn.cursor()
     cursor.execute("SELECT free_attempts, is_vip FROM users WHERE user_id = ?", (user_id,))
     user = cursor.fetchone()
     if not user:
