@@ -281,7 +281,7 @@ ADMIN_ID = 6141302755                    # 👈 userinfobot bergan ID raqamingiz
 
 # ====================================================================
 
-if name == "main":
+if__name__== "main__":
     import asyncio
     bot = Bot(token=BOT_TOKEN) 
     asyncio.run(dp.start_polling(bot))
