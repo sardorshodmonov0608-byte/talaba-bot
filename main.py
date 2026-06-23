@@ -69,14 +69,25 @@ def init_db():
     conn.commit()
     conn.close()
 
-def get_or_create_user(user_id):conn = sqlite3.connect(DB_NAME)
-cursor = conn.cursor()
-    cursor.execute("SELECT free_attempts, is_vip FROM users WHERE user_id = ?", (user_id,))
+def get_or_create_user(user_id):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT free_attempts, is_vip FROM users WHERE user_id = ?",
+        (user_id,)
+    )
+
     user = cursor.fetchone()
+
     if not user:
-        cursor.execute("INSERT INTO users (user_id, free_attempts, is_vip) VALUES (?, 3, 0)", (user_id,))
+        cursor.execute(
+            "INSERT INTO users (user_id, free_attempts, is_vip) VALUES (?, 3, 0)",
+            (user_id,)
+        )
         conn.commit()
         user = (3, 0)
+
     conn.close()
     return {"free_attempts": user[0], "is_vip": user[1]}
 
